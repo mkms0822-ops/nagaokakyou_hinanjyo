@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f2942">
+<title>避難所運営管理ツール</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-mark">避</span>
+    <span class="brand-name">避難所運営管理ツール</span>
+  </div>
+  <div id="netBadge" class="net-badge net-online" title="通信状態">オンライン</div>
+</header>
+
+<div id="pendingBar" class="pending-bar" hidden>
+  未送信 <b id="pendingCount">0</b> 件（電波が戻ると自動で送信します）
+  <button id="retryBtn" type="button">今すぐ再送信</button>
+</div>
+
+<main class="wrap">
+
+  <!-- 基本情報 -->
+  <section class="card">
+    <h2 class="card-title">基本情報</h2>
+    <div class="grid2">
+      <label class="field">避難所ID
+        <input id="shelter_id" placeholder="例：A" maxlength="8">
+      </label>
+      <label class="field">避難所名
+        <input id="shelter_name" placeholder="例：〇〇小学校">
+      </label>
+      <label class="field">入力者名
+        <input id="reporter" placeholder="担当者名">
+      </label>
+      <label class="field">報告日時
+        <input id="timestamp_display" type="text" readonly>
+      </label>
+    </div>
+  </section>
+
+  <!-- ライフライン -->
+  <section class="card">
+    <h2 class="card-title">ライフライン・環境</h2>
+    <div class="statusgrid">
+      <div class="statusblock" data-key="power">
+        <span class="statuslabel">停電</span>
+        <div class="segbtns" data-name="power">
+          <button type="button" data-v="復旧" class="seg seg-ok">復旧</button>
+          <button type="button" data-v="一部" class="seg seg-warn">一部</button>
+          <button type="button" data-v="停電" class="seg seg-bad">停電</button>
+        </div>
+      </div>
+      <div class="statusblock" data-key="water">
+        <span class="statuslabel">断水</span>
+        <div class="segbtns" data-name="water">
+          <button type="button" data-v="復旧" class="seg seg-ok">復旧</button>
+          <button type="button" data-v="一部" class="seg seg-warn">一部</button>
+          <button type="button" data-v="断水" class="seg seg-bad">断水</button>
+        </div>
+      </div>
+      <div class="statusblock" data-key="gas">
+        <span class="statuslabel">ガス</span>
+        <div class="segbtns" data-name="gas">
+          <button type="button" data-v="開通" class="seg seg-ok">開通</button>
+          <button type="button" data-v="一部" class="seg seg-warn">一部</button>
+          <button type="button" data-v="停止" class="seg seg-bad">停止</button>
+        </div>
+      </div>
+      <div class="statusblock" data-key="internet">
+        <span class="statuslabel">ネット</span>
+        <div class="segbtns" data-name="internet">
+          <button type="button" data-v="良好" class="seg seg-ok">良好</button>
+          <button type="button" data-v="不安定" class="seg seg-warn">不安定</button>
+          <button type="button" data-v="不通" class="seg seg-bad">不通</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid3">
+      <label class="field">気温(℃)
+        <input id="temperature_c" type="number" inputmode="decimal" step="0.1">
+      </label>
+      <label class="field">湿度(%)
+        <input id="humidity_pct" type="number" inputmode="numeric" min="0" max="100">
+      </label>
+      <label class="field">感染症対策
+        <select id="infection_measures">
+          <option value="">—</option>
+          <option>実施</option>
+          <option>一部</option>
+          <option>未実施</option>
+        </select>
+      </label>
+    </div>
+  </section>
+
+  <!-- 避難者：年代・性別 -->
+  <section class="card">
+    <h2 class="card-title">避難者数：年代別</h2>
+    <div class="countgrid" id="ageGrid"><!-- JSで生成 --></div>
+    <div class="subtotal">年代計：<b id="ageTotal">0</b> 人</div>
+
+    <h3 class="sub">性別</h3>
+    <div class="countgrid">
+      <div class="counter" data-name="sex_male"><span>男</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="sex_female"><span>女</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="sex_other"><span>その他</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+    </div>
+  </section>
+
+  <!-- 地区別 -->
+  <section class="card">
+    <h2 class="card-title">地区別 人数</h2>
+    <div class="countgrid" id="districtGrid"><!-- JSで生成 --></div>
+    <button type="button" id="addDistrict" class="ghost-btn">＋ 地区を追加</button>
+  </section>
+
+  <!-- 要配慮者 -->
+  <section class="card">
+    <h2 class="card-title">要配慮者</h2>
+    <h3 class="sub">障害の種類別</h3>
+    <div class="countgrid" id="disabilityGrid"><!-- JSで生成 --></div>
+    <h3 class="sub">妊産婦・乳幼児</h3>
+    <div class="countgrid">
+      <div class="counter" data-name="pregnant"><span>妊婦</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="postpartum"><span>産婦</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="infant_households"><span>乳幼児連れ世帯</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+    </div>
+    <div class="grid2">
+      <label class="field">既往症の有無
+        <select id="chronic_yes"><option value="">—</option><option>有</option><option>無</option></select>
+      </label>
+      <label class="field">既往症メモ（任意）
+        <input id="chronic_note" placeholder="主な内容">
+      </label>
+    </div>
+  </section>
+
+  <!-- ペット -->
+  <section class="card">
+    <h2 class="card-title">ペット</h2>
+    <div class="countgrid">
+      <div class="counter" data-name="pet_households"><span>同伴世帯</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="pet_dogs"><span>犬</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="pet_cats"><span>猫</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+      <div class="counter" data-name="pet_others"><span>その他</span><div class="stepper"><button type="button" class="minus">−</button><input value="0" inputmode="numeric"><button type="button" class="plus">＋</button></div></div>
+    </div>
+  </section>
+
+  <!-- 医療 -->
+  <section class="card">
+    <h2 class="card-title">医療体制</h2>
+    <div class="grid3">
+      <label class="field">医療関係者
+        <select id="medical_present"><option value="">—</option><option>有</option><option>無</option></select>
+      </label>
+      <label class="field">医療機関名
+        <input id="medical_org" placeholder="例：〇〇病院">
+      </label>
+      <label class="field">けが人の人数
+        <input id="injured_count" type="number" inputmode="numeric" min="0" value="0">
+      </label>
+    </div>
+    <h3 class="sub">医療スタッフ</h3>
+    <div id="medicalStaffList" class="rowlist"></div>
+    <button type="button" id="addMedStaff" class="ghost-btn">＋ 医療スタッフを追加</button>
+  </section>
+
+  <!-- 運営スタッフ -->
+  <section class="card">
+    <h2 class="card-title">運営スタッフ</h2>
+    <div id="staffList" class="rowlist"></div>
+    <button type="button" id="addStaff" class="ghost-btn">＋ スタッフを追加</button>
+  </section>
+
+  <!-- 備蓄品 -->
+  <section class="card">
+    <h2 class="card-title">備蓄品 在庫</h2>
+    <div id="supplyList" class="rowlist"></div>
+    <button type="button" id="addSupply" class="ghost-btn">＋ 品目を追加</button>
+  </section>
+
+  <!-- 安否不明者 -->
+  <section class="card">
+    <h2 class="card-title">安否不明者</h2>
+    <div id="missingList" class="rowlist"></div>
+    <button type="button" id="addMissing" class="ghost-btn">＋ 不明者を追加</button>
+  </section>
+
+  <!-- 運営オペレーション -->
+  <section class="card">
+    <h2 class="card-title">運営オペレーション</h2>
+    <div class="grid2">
+      <label class="field">起床時間
+        <input id="wake_time" type="time">
+      </label>
+      <label class="field">就寝時間
+        <input id="sleep_time" type="time">
+      </label>
+      <label class="field">オリエンテーション
+        <select id="orientation_done"><option value="">—</option><option>済</option><option>未</option></select>
+      </label>
+      <label class="field">実施時刻
+        <input id="orientation_time" type="time">
+      </label>
+    </div>
+    <label class="field">特記事項・引き継ぎメモ
+      <textarea id="notes" rows="3" placeholder="自由記述"></textarea>
+    </label>
+  </section>
+
+</main>
+
+<div class="submitbar">
+  <button id="saveDraft" type="button" class="btn-secondary">下書き保存</button>
+  <button id="submitBtn" type="button" class="btn-primary">ホストに送信</button>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
