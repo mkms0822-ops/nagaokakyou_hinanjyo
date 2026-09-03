@@ -184,3 +184,26 @@ body{
 .toast.ok{background:var(--ok);color:#fff}
 .toast.err{background:var(--bad);color:#fff}
 .toast.info{background:var(--navy-700);color:var(--ink);border:1px solid var(--line)}
+
+/* ヒント文 */
+.hint{margin:0 0 12px;font-size:13px;color:var(--ink-dim);line-height:1.6}
+
+/* 自治会：選択＋人数＋追加 */
+.district-add{display:grid;grid-template-columns:1fr 90px auto;gap:8px;margin-bottom:12px}
+@media(max-width:560px){.district-add{grid-template-columns:1fr 72px auto}}
+.district-add select,.district-add input{
+  min-height:var(--tap);background:var(--field-bg);color:var(--ink);
+  border:1px solid var(--field-line);border-radius:8px;padding:8px 10px;font-size:16px;
+}
+.district-add input{text-align:center}
+.add-btn{
+  min-height:var(--tap);padding:0 18px;border:none;border-radius:8px;
+  background:var(--accent);color:var(--accent-ink);font-size:15px;font-weight:800;cursor:pointer;
+}
+.add-btn:active{filter:brightness(.92)}
+
+/* 追加された自治会の行 */
+.district-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.district-row .dname{font-size:15px;font-weight:700}
+.district-row .dqty{margin-left:auto;font-size:14px;color:var(--ink-dim)}
+.district-row .dqty b{color:var(--ink);font-size:18px}

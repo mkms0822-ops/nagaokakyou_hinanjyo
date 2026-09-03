@@ -27,11 +27,14 @@
   <section class="card">
     <h2 class="card-title">基本情報</h2>
     <div class="grid2">
-      <label class="field">避難所ID
-        <input id="shelter_id" placeholder="例：A" maxlength="8">
-      </label>
       <label class="field">避難所名
-        <input id="shelter_name" placeholder="例：〇〇小学校">
+        <select id="shelter_name">
+          <option value="">選択してください</option>
+          <!-- JSでconfig.SHELTERSから生成 -->
+        </select>
+      </label>
+      <label class="field">避難所ID（自動）
+        <input id="shelter_id" type="text" readonly placeholder="避難所名を選ぶと表示">
       </label>
       <label class="field">入力者名
         <input id="reporter" placeholder="担当者名">
@@ -111,11 +114,20 @@
     </div>
   </section>
 
-  <!-- 地区別 -->
+  <!-- 居住自治会別 人数 -->
   <section class="card">
-    <h2 class="card-title">地区別 人数</h2>
-    <div class="countgrid" id="districtGrid"><!-- JSで生成 --></div>
-    <button type="button" id="addDistrict" class="ghost-btn">＋ 地区を追加</button>
+    <h2 class="card-title">居住自治会別 人数</h2>
+    <p class="hint">避難者の居住自治会を選び、人数を入力して「追加」を押してください。該当する自治会の分だけ積み上げられます。</p>
+    <div class="district-add">
+      <select id="districtSelect">
+        <option value="">自治会を選択</option>
+        <!-- JSでconfig.DISTRICTSから生成 -->
+      </select>
+      <input id="districtQty" type="number" inputmode="numeric" min="1" value="1" aria-label="人数">
+      <button type="button" id="addDistrict" class="add-btn">追加</button>
+    </div>
+    <div id="districtList" class="rowlist"></div>
+    <div class="subtotal">自治会別 合計：<b id="districtTotal">0</b> 人</div>
   </section>
 
   <!-- 要配慮者 -->

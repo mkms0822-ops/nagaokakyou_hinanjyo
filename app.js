@@ -71,7 +71,74 @@ function counterHTML(name, label){
 function buildDynamicGrids(){
   $('#ageGrid').innerHTML = CFG.AGE_BUCKETS.map(a=>counterHTML('age_'+a, a+'歳')).join('');
   $('#disabilityGrid').innerHTML = CFG.DISABILITY_TYPES.map(d=>counterHTML('disability_'+d, d)).join('');
-  $('#districtGrid').innerHTML = CFG.DISTRICTS.map(d=>counterHTML('district_'+d, d)).join('');
+}
+
+/* 避難所名ドロップダウンを生成。IDは並び順にA,B,C…（27件目以降はAA,AB…） */
+function shelterIdFromIndex(i){
+  let s=''; i=i+1;
+  while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); }
+  return s;
+}
+function buildShelterSelect(){
+  const sel = $('#shelter_name');
+  (CFG.SHELTERS||[]).forEach((name,i)=>{
+    const id = shelterIdFromIndex(i);
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.dataset.id = id;
+    opt.textContent = id + '：' + name;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', ()=>{
+    const opt = sel.options[sel.selectedIndex];
+    $('#shelter_id').value = opt ? (opt.dataset.id||'') : '';
+  });
+}
+
+/* 自治会ドロップダウンを生成 */
+function buildDistrictSelect(){
+  const sel = $('#districtSelect');
+  (CFG.DISTRICTS||[]).forEach(name=>{
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+/* 自治会の人数行を追加（同じ自治会は上書き集約） */
+function addDistrictEntry(name, qty){
+  if(!name){ toast('自治会を選んでください','err'); return; }
+  qty = parseInt(qty,10); if(isNaN(qty)||qty<1){ toast('人数を入力してください','err'); return; }
+  // 既存があれば加算
+  const existing = document.querySelector(`#districtList .rowitem[data-name="${CSS.escape(name)}"]`);
+  if(existing){
+    const q = existing.querySelector('.dq');
+    q.textContent = (parseInt(q.textContent,10)||0) + qty;
+  }else{
+    const el = document.createElement('div');
+    el.className = 'rowitem district-row';
+    el.dataset.name = name;
+    el.innerHTML = `<span class="dname">${name}</span>
+      <span class="dqty"><b class="dq">${qty}</b> 人</span>
+      <button type="button" class="del">削除</button>`;
+    $('#districtList').appendChild(el);
+  }
+  updateDistrictTotal();
+}
+function updateDistrictTotal(){
+  let sum=0;
+  document.querySelectorAll('#districtList .dq').forEach(e=> sum += parseInt(e.textContent,10)||0);
+  $('#districtTotal').textContent = sum;
+}
+/* 自治会リスト → {自治会名:人数} を収集 */
+function collectDistricts(){
+  const o={};
+  document.querySelectorAll('#districtList .rowitem').forEach(item=>{
+    const name = item.dataset.name;
+    const q = parseInt(item.querySelector('.dq').textContent,10)||0;
+    if(name && q>0) o[name]=q;
+  });
+  return o;
 }
 
 /* ステッパー操作（イベント委譲） */
@@ -192,8 +259,7 @@ function countVal(name){
   return parseInt(el?.value||'0',10)||0;
 }
 function collectPayload(){
-  const district={};
-  CFG.DISTRICTS.forEach(d=>{ const n=countVal('district_'+d); if(n>0) district[d]=n; });
+  const district = collectDistricts();
   const age={}; CFG.AGE_BUCKETS.forEach(a=> age[a]=countVal('age_'+a));
   const disability={}; CFG.DISABILITY_TYPES.forEach(d=> disability[d]=countVal('disability_'+d));
 
@@ -307,6 +373,8 @@ function saveDraft(){
 /* ============ 初期化 ============ */
 async function init(){
   buildDynamicGrids();
+  buildShelterSelect();
+  buildDistrictSelect();
   bindSteppers();
   bindSegments();
   bindRowDelete();
@@ -322,14 +390,17 @@ async function init(){
   $('#addSupply').onclick = ()=> addSupplyRow();
   $('#addMissing').onclick = ()=> addMissingRow();
   $('#addDistrict').onclick = ()=>{
-    const name = prompt('地区名を入力'); if(!name) return;
-    $('#districtGrid').insertAdjacentHTML('beforeend', counterHTML('district_'+name, name));
-    CFG.DISTRICTS.push(name);
+    addDistrictEntry($('#districtSelect').value, $('#districtQty').value);
+    $('#districtSelect').value = ''; $('#districtQty').value = 1;
   };
+  // 自治会行の削除時に合計を再計算
+  $('#districtList').addEventListener('click', e=>{
+    if(e.target.closest('.del')) setTimeout(updateDistrictTotal, 0);
+  });
   $('#saveDraft').onclick = saveDraft;
   $('#submitBtn').onclick = async ()=>{
     const p = collectPayload();
-    if(!p.shelter_id){ toast('避難所IDを入力してください','err'); return; }
+    if(!p.shelter_name){ toast('避難所を選んでください','err'); return; }
     await trySend(p);
   };
   $('#retryBtn').onclick = flushOutbox;
