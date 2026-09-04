@@ -22,6 +22,34 @@
   --tap:48px;            /* 最小タップ高 */
 }
 
+/* ライトテーマ（data-theme="light" のとき上書き）
+   白ベースで屋内・明るい場所でも見やすく。信号色は濃いめにして視認性を確保。 */
+[data-theme="light"]{
+  --navy-900:#f4f6fa;   /* ページ背景 */
+  --navy-800:#ffffff;   /* カード背景 */
+  --navy-700:#e4e9f1;   /* ボタン等の副背景 */
+  --line:#d3dae6;
+  --ink:#152233;        /* 本文 */
+  --ink-dim:#5b6b81;
+  --field-bg:#ffffff;
+  --field-line:#c2ccdb;
+  --ok:#1f9d55;
+  --ok-bg:#e2f5ea;
+  --warn:#b57d00;
+  --warn-bg:#fdf3dc;
+  --bad:#c23b3b;
+  --bad-bg:#fbe5e5;
+  --accent:#f59e00;
+  --accent-ink:#ffffff;
+}
+
+/* テーマ切替ボタン */
+.theme-toggle{
+  min-height:38px;padding:0 14px;border:1px solid var(--field-line);
+  background:var(--field-bg);color:var(--ink);border-radius:8px;
+  font-size:13px;font-weight:700;cursor:pointer;
+}
+
 *{box-sizing:border-box}
 html,body{margin:0}
 body{

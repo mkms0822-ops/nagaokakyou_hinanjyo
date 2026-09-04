@@ -302,18 +302,14 @@ function collectPayload(){
 
 /* ============ 送信 & オフライン処理 ============ */
 async function postToHost(payload){
-  // GitHub Pages→GAS は、JSONボディだと no-cors で中身が届かないことがある。
-  // FormDataで送ると「単純リクエスト」となり、no-corsでも中身が確実に届く。
-  // GAS側は e.parameter.payload で受け取ってJSON.parseする。
-  const fd = new FormData();
-  fd.append('payload', JSON.stringify(payload));
-  await fetch(CFG.GAS_URL, {
+  const res = await fetch(CFG.GAS_URL, {
     method:'POST',
-    mode:'no-cors',
-    body: fd
+    // GASのCORS制約回避のため text/plain で送る（GAS側はJSON.parseで受ける）
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(payload)
   });
-  // no-corsのため応答本文は読めない。例外が出なければ送信できたものとして扱う。
-  return { ok:true, opaque:true };
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  return res.json();
 }
 
 async function trySend(payload){
@@ -375,7 +371,34 @@ function saveDraft(){
 }
 
 /* ============ 初期化 ============ */
+/* テーマ（ダーク/ライト）切替。選択はlocalStorageに保存し次回も維持 */
+function applyTheme(theme){
+  const btn = document.getElementById('themeToggle');
+  if(theme==='light'){
+    document.documentElement.setAttribute('data-theme','light');
+    if(btn) btn.textContent = '☀️ ライト';
+  }else{
+    document.documentElement.removeAttribute('data-theme');
+    if(btn) btn.textContent = '🌙 ダーク';
+  }
+}
+function initTheme(){
+  let saved = 'dark';
+  try{ saved = localStorage.getItem('shelter_theme') || 'dark'; }catch(e){}
+  applyTheme(saved);
+  const btn = document.getElementById('themeToggle');
+  if(btn){
+    btn.onclick = ()=>{
+      const now = document.documentElement.getAttribute('data-theme')==='light' ? 'light':'dark';
+      const next = now==='light' ? 'dark':'light';
+      applyTheme(next);
+      try{ localStorage.setItem('shelter_theme', next); }catch(e){}
+    };
+  }
+}
+
 async function init(){
+  initTheme();
   buildDynamicGrids();
   buildShelterSelect();
   buildDistrictSelect();

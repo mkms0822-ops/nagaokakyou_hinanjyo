@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<base target="_top">
+<style>
+  :root{
+    --navy-900:#0b1f33; --navy-800:#0f2942; --navy-700:#173a5e; --line:#28496b;
+    --ink:#eaf1f8; --ink-dim:#9db4cc; --field:#0d2137; --field-line:#2f5679;
+    --ok:#1f9d55; --ok-bg:#123a26; --warn:#c98a00; --warn-bg:#3a2f0d;
+    --bad:#c23b3b; --bad-bg:#3a1616; --accent:#ffb703; --accent-ink:#0b1f33; --radius:10px;
+  }
+  [data-theme="light"]{
+    --navy-900:#f4f6fa; --navy-800:#ffffff; --navy-700:#e4e9f1; --line:#d3dae6;
+    --ink:#152233; --ink-dim:#5b6b81; --field:#ffffff; --field-line:#c2ccdb;
+    --ok:#1f9d55; --ok-bg:#e2f5ea; --warn:#b57d00; --warn-bg:#fdf3dc;
+    --bad:#c23b3b; --bad-bg:#fbe5e5; --accent:#f59e00; --accent-ink:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic UI",system-ui,sans-serif;
+    background:var(--navy-900);color:var(--ink);font-size:15px;line-height:1.5}
+  .head{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:12px 16px;background:var(--navy-800);border-bottom:1px solid var(--line)}
+  .head h1{font-size:17px;margin:0;font-weight:800}
+  .head .mark{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;
+    background:var(--accent);color:var(--accent-ink);font-weight:800}
+  .head .meta{margin-left:auto;font-size:12px;color:var(--ink-dim);text-align:right}
+  .reload{min-height:38px;padding:0 14px;border:none;border-radius:8px;cursor:pointer;
+    background:var(--navy-700);color:var(--ink);font-weight:700}
+  .wrap{max-width:1000px;margin:0 auto;padding:16px}
+
+  /* タブ */
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+  .tab{white-space:nowrap;min-height:42px;padding:0 16px;border:1px solid var(--field-line);
+    background:var(--field);color:var(--ink-dim);border-radius:8px 8px 0 0;font-weight:700;cursor:pointer}
+  .tab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+  .card{background:var(--navy-800);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px}
+  .card h2{margin:0 0 12px;font-size:16px;font-weight:800;padding-left:10px;border-left:4px solid var(--accent)}
+
+  /* 集計の数字カード */
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+  .stat{background:var(--field);border:1px solid var(--field-line);border-radius:8px;padding:10px 12px}
+  .stat .k{font-size:12px;color:var(--ink-dim)}
+  .stat .v{font-size:22px;font-weight:800;margin-top:2px}
+
+  /* ライフラインのバッジ */
+  .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .badge{padding:5px 10px;border-radius:999px;font-size:13px;font-weight:700;border:1px solid var(--field-line)}
+  .b-ok{background:var(--ok-bg);color:#7ff0ac;border-color:var(--ok)}
+  .b-warn{background:var(--warn-bg);color:#ffcf6b;border-color:var(--warn)}
+  .b-bad{background:var(--bad-bg);color:#ff9a9a;border-color:var(--bad)}
+  .b-none{background:var(--field);color:var(--ink-dim)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--ink-dim);font-weight:700}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+  /* TODO */
+  .todo-add{display:grid;grid-template-columns:1fr 160px auto;gap:8px;margin-bottom:12px}
+  @media(max-width:640px){.todo-add{grid-template-columns:1fr}}
+  .todo-add input{min-height:44px;background:var(--field);color:var(--ink);
+    border:1px solid var(--field-line);border-radius:8px;padding:8px 12px;font-size:15px}
+  .todo-add button{min-height:44px;padding:0 18px;border:none;border-radius:8px;
+    background:var(--accent);color:var(--accent-ink);font-weight:800;cursor:pointer}
+  .todo{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--field-line);
+    border-radius:8px;background:var(--field);margin-bottom:8px}
+  .todo.done{opacity:.55}
+  .todo.done .todo-text{text-decoration:line-through}
+  .todo input[type=checkbox]{width:22px;height:22px;margin-top:2px;flex:0 0 auto}
+  .todo-body{flex:1}
+  .todo-text{font-size:15px}
+  .todo-meta{font-size:12px;color:var(--ink-dim);margin-top:3px}
+
+  .empty{color:var(--ink-dim);padding:14px;text-align:center}
+  .loading{text-align:center;padding:40px;color:var(--ink-dim)}
+  .err{background:var(--bad-bg);color:#ff9a9a;border:1px solid #7a2b2b;border-radius:8px;padding:12px;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="head">
+  <span class="mark">避</span>
+  <h1>ホスト管理画面</h1>
+  <button class="reload" onclick="loadData()">更新</button>
+  <button class="reload" id="themeToggle" onclick="toggleTheme()">🌙 ダーク</button>
+  <div class="meta" id="meta">読み込み中…</div>
+</div>
+
+<div class="wrap">
+  <div id="tabs" class="tabs"></div>
+  <div id="content"><div class="loading">データを読み込んでいます…</div></div>
+</div>
+
+<script>
+  // このHTMLを配信しているWebアプリ自身のURL（末尾 /exec）
+  const BASE = String(window.location.href).split('?')[0];
+  const TOKEN = 'NAGAOKAKYOU_HINANJYO'; // GAS側 SHARED_TOKEN と一致させる
+
+  let DATA = null;
+  let currentTab = '__total__';
+
+  function loadData(){
+    setMeta('更新中…');
+    // GAS内HTMLからサーバー関数を直接呼ぶ（fetch/リダイレクト不要で確実）
+    google.script.run
+      .withSuccessHandler(function(data){
+        DATA = data;
+        if(!DATA || !DATA.ok){ throw new Error((DATA&&DATA.error)||'取得失敗'); }
+        render();
+        setMeta('最終更新：' + fmt(DATA.generated_at));
+      })
+      .withFailureHandler(function(err){
+        document.getElementById('content').innerHTML =
+          '<div class="err">データ取得に失敗しました：'+esc(String(err))+'</div>';
+        setMeta('エラー');
+      })
+      .getDashboardApi();
+  }
+
+  function render(){
+    renderTabs();
+    if(currentTab==='__total__') renderTotal();
+    else renderShelter(currentTab);
+  }
+
+  function renderTabs(){
+    const tabs = document.getElementById('tabs');
+    let html = tab('__total__','全体');
+    (DATA.byShelter||[]).forEach(s=>{
+      html += tab(s.shelter_id, s.shelter_id+'：'+ (s.shelter_name||'(名称未設定)'));
+    });
+    tabs.innerHTML = html;
+  }
+  function tab(id, label){
+    const cls = (id===currentTab)?'tab active':'tab';
+    return '<button class="'+cls+'" onclick="selectTab(\''+esc(id)+'\')">'+esc(label)+'</button>';
+  }
+  function selectTab(id){ currentTab = id; render(); }
+
+  function renderTotal(){
+    const c = document.getElementById('content');
+    if(!DATA.total || !DATA.total.length){
+      c.innerHTML = '<div class="card"><div class="empty">まだ報告データがありません。</div></div>';
+      return;
+    }
+    let stats = '<div class="card"><h2>全体累計</h2><div class="stats">';
+    DATA.total.forEach(t=>{ stats += statBox(t.label, t.value); });
+    stats += '</div></div>';
+
+    // 避難所一覧テーブル
+    let table = '<div class="card"><h2>避難所一覧</h2><table><thead><tr>'+
+      '<th>ID</th><th>避難所</th><th class="num">避難人数</th><th class="num">要配慮</th>'+
+      '<th class="num">けが人</th><th>電気</th><th>水</th><th>ネット</th><th class="num">不足品目</th>'+
+      '<th>最終報告</th></tr></thead><tbody>';
+    (DATA.byShelter||[]).forEach(s=>{
+      table += '<tr>'+
+        '<td>'+esc(s.shelter_id)+'</td>'+
+        '<td>'+esc(s.shelter_name||'')+'</td>'+
+        '<td class="num">'+s.total_evacuees+'</td>'+
+        '<td class="num">'+s.care_approx+'</td>'+
+        '<td class="num">'+s.injured+'</td>'+
+        '<td>'+lifeMini(s.power)+'</td>'+
+        '<td>'+lifeMini(s.water)+'</td>'+
+        '<td>'+lifeMini(s.internet)+'</td>'+
+        '<td class="num">'+s.supplies_shortage+'</td>'+
+        '<td>'+fmt(s.timestamp)+'</td></tr>';
+    });
+    if(!(DATA.byShelter||[]).length) table += '<tr><td colspan="10" class="empty">報告なし</td></tr>';
+    table += '</tbody></table></div>';
+
+    c.innerHTML = stats + table;
+  }
+
+  function renderShelter(sid){
+    const s = (DATA.byShelter||[]).find(x=>x.shelter_id===sid);
+    const c = document.getElementById('content');
+    if(!s){ c.innerHTML = '<div class="card"><div class="empty">この避難所の報告はまだありません。</div></div>'; return; }
+
+    // ライフライン
+    let life = '<div class="card"><h2>'+esc(s.shelter_name||sid)+' の状況</h2>'+
+      '<div class="badges">'+
+      lifeBadge('電気',s.power)+lifeBadge('水',s.water)+lifeBadge('ガス',s.gas)+lifeBadge('ネット',s.internet)+
+      '</div>'+
+      '<div class="stats" style="margin-top:12px">'+
+        statBox('避難人数', s.total_evacuees)+
+        statBox('要配慮者(概数)', s.care_approx)+
+        statBox('けが人', s.injured)+
+        statBox('気温(℃)', s.temperature_c)+
+        statBox('湿度(%)', s.humidity_pct)+
+        statBox('不足品目', s.supplies_shortage)+
+      '</div></div>';
+
+    // 年代・性別
+    let age = '<div class="card"><h2>避難者の内訳</h2><table><thead><tr><th>年代</th><th class="num">人数</th></tr></thead><tbody>';
+    Object.keys(s.age||{}).forEach(k=>{ age += '<tr><td>'+esc(k)+'</td><td class="num">'+s.age[k]+'</td></tr>'; });
+    age += '</tbody></table>';
+    age += '<div class="badges" style="margin-top:10px">'+
+      '<span class="badge b-none">男 '+s.sex.male+'</span>'+
+      '<span class="badge b-none">女 '+s.sex.female+'</span>'+
+      '<span class="badge b-none">その他 '+s.sex.other+'</span>'+
+      '<span class="badge b-none">妊婦 '+s.pregnant+'</span>'+
+      '<span class="badge b-none">産婦 '+s.postpartum+'</span></div></div>';
+
+    // 自治会別
+    let dist = '';
+    const dk = Object.keys(s.district||{});
+    if(dk.length){
+      dist = '<div class="card"><h2>居住自治会別</h2><table><thead><tr><th>自治会</th><th class="num">人数</th></tr></thead><tbody>';
+      dk.forEach(k=>{ dist += '<tr><td>'+esc(k)+'</td><td class="num">'+s.district[k]+'</td></tr>'; });
+      dist += '</tbody></table></div>';
+    }
+
+    // TODO
+    const todo = renderTodo(sid, s.shelter_name||'');
+
+    c.innerHTML = life + age + dist + todo;
+  }
+
+  function renderTodo(sid, sname){
+    const todos = (DATA.todos||[]).filter(t=>t.shelter_id===sid);
+    let items = '';
+    if(!todos.length){ items = '<div class="empty">TODOはまだありません。</div>'; }
+    else{
+      todos.forEach(t=>{
+        items += '<div class="todo'+(t.done?' done':'')+'">'+
+          '<input type="checkbox" '+(t.done?'checked':'')+' onchange="toggleTodo(\''+esc(t.todo_id)+'\')">'+
+          '<div class="todo-body"><div class="todo-text">'+esc(t.text)+'</div>'+
+          '<div class="todo-meta">'+esc(t.author||'—')+'／'+fmt(t.created_at)+'</div></div></div>';
+      });
+    }
+    return '<div class="card"><h2>TODO・メモ</h2>'+
+      '<div class="todo-add">'+
+        '<input id="todoText" placeholder="やること・メモを入力">'+
+        '<input id="todoAuthor" placeholder="入力者名">'+
+        '<button onclick="addTodo(\''+esc(sid)+'\',\''+esc(sname)+'\')">追加</button>'+
+      '</div>'+ items +'</div>';
+  }
+
+  function addTodo(sid, sname){
+    const text = document.getElementById('todoText').value.trim();
+    const author = document.getElementById('todoAuthor').value.trim();
+    if(!text){ alert('内容を入力してください'); return; }
+    google.script.run
+      .withSuccessHandler(function(){ loadData(); currentTab = sid; })
+      .withFailureHandler(function(err){ alert('保存に失敗しました：'+err); })
+      .todoAddApi({ token:TOKEN, shelter_id:sid, shelter_name:sname, text:text, author:author });
+  }
+  function toggleTodo(id){
+    google.script.run
+      .withSuccessHandler(function(){ loadData(); })
+      .withFailureHandler(function(err){ alert('更新に失敗しました：'+err); })
+      .todoToggleApi({ token:TOKEN, todo_id:id });
+  }
+
+  /* 小物 */
+  function statBox(k,v){ return '<div class="stat"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div></div>'; }
+  function lifeBadge(label, v){
+    return '<span class="badge '+lifeCls(v)+'">'+esc(label)+'：'+esc(v||'—')+'</span>';
+  }
+  function lifeMini(v){ return '<span class="badge '+lifeCls(v)+'" style="padding:2px 8px;font-size:12px">'+esc(v||'—')+'</span>'; }
+  function lifeCls(v){
+    if(v==='復旧'||v==='開通'||v==='良好') return 'b-ok';
+    if(v==='一部'||v==='不安定') return 'b-warn';
+    if(v==='停電'||v==='断水'||v==='停止'||v==='不通') return 'b-bad';
+    return 'b-none';
+  }
+  function fmt(iso){ if(!iso) return '—'; const d=new Date(iso); return isNaN(d)?esc(iso):
+    (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function setMeta(t){ document.getElementById('meta').textContent = t; }
+
+  function applyTheme(theme){
+    const btn = document.getElementById('themeToggle');
+    if(theme==='light'){
+      document.documentElement.setAttribute('data-theme','light');
+      if(btn) btn.textContent = '☀️ ライト';
+    }else{
+      document.documentElement.removeAttribute('data-theme');
+      if(btn) btn.textContent = '🌙 ダーク';
+    }
+  }
+  function toggleTheme(){
+    const now = document.documentElement.getAttribute('data-theme')==='light' ? 'light':'dark';
+    const next = now==='light' ? 'dark':'light';
+    applyTheme(next);
+    try{ localStorage.setItem('host_theme', next); }catch(e){}
+  }
+  (function initTheme(){
+    let saved = 'dark';
+    try{ saved = localStorage.getItem('host_theme') || 'dark'; }catch(e){}
+    applyTheme(saved);
+  })();
+
+  loadData();
+</script>
+</body>
+</html>
