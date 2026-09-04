@@ -302,16 +302,17 @@ function collectPayload(){
 
 /* ============ 送信 & オフライン処理 ============ */
 async function postToHost(payload){
-  // GitHub Pages（別ドメイン）→GAS はCORSで応答を読めないため no-cors で送信する。
-  // no-cors では res の中身を読めない（opaqueレスポンス）ので、
-  // fetchが例外を投げなければ「送信成功」とみなす。GAS側でJSON.parseして書き込みする。
+  // GitHub Pages→GAS は、JSONボディだと no-cors で中身が届かないことがある。
+  // FormDataで送ると「単純リクエスト」となり、no-corsでも中身が確実に届く。
+  // GAS側は e.parameter.payload で受け取ってJSON.parseする。
+  const fd = new FormData();
+  fd.append('payload', JSON.stringify(payload));
   await fetch(CFG.GAS_URL, {
     method:'POST',
     mode:'no-cors',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify(payload)
+    body: fd
   });
-  // no-corsのため応答本文は取得不可。ここまで来たら送信できたものとして扱う。
+  // no-corsのため応答本文は読めない。例外が出なければ送信できたものとして扱う。
   return { ok:true, opaque:true };
 }
 
