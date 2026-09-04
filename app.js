@@ -399,6 +399,15 @@ function initTheme(){
 
 async function init(){
   initTheme();
+  // 連絡チャットボタン：GAS配信のチャットページを新しいタブで開く
+  const chatBtn = document.getElementById('chatBtn');
+  if(chatBtn){
+    chatBtn.onclick = ()=>{
+      const base = (CFG.GAS_URL||'').split('?')[0];
+      if(!base){ alert('チャットのURLが設定されていません'); return; }
+      window.open(base + '?page=chat', '_blank');
+    };
+  }
   buildDynamicGrids();
   buildShelterSelect();
   buildDistrictSelect();
