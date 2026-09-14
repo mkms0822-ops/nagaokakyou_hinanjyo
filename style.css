@@ -250,3 +250,11 @@ body{
 .modal-body th{background:var(--field-bg);color:var(--ink-dim);font-weight:700;white-space:nowrap}
 .modal-body td.num{text-align:right;font-variant-numeric:tabular-nums}
 .log-slot{font-size:14px;font-weight:800;color:var(--accent);margin:14px 0 6px}
+
+/* ===== 印刷用（報告フォーム）===== */
+@media print{
+  .app-header,.submitbar,.pending-bar,.modal-back,#loginGate{display:none !important}
+  body{background:#fff;color:#000;padding-bottom:0}
+  .card{break-inside:avoid;border-color:#ccc}
+  @page{margin:12mm}
+}

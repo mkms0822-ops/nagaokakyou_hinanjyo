@@ -423,6 +423,57 @@ function collectPayload(){
   };
 }
 
+/* ============ 報告内容の出力（共有・コピー・印刷・PDF） ============ */
+function reportPlainText(){
+  var p = collectPayload();
+  var L = [];
+  L.push('■避難所運営 報告');
+  L.push('避難所：'+(p.shelter_id?('['+p.shelter_id+'] '):'')+(p.shelter_name||'（未選択）'));
+  L.push('入力者：'+(p.reporter||'—')+' ／ '+new Date().toLocaleString('ja-JP'));
+  L.push('');
+  L.push('【ライフライン】電気:'+(p.status.power||'—')+' 水:'+(p.status.water||'—')+' ガス:'+(p.status.gas||'—')+' ネット:'+(p.status.internet||'—'));
+  L.push('気温:'+(p.status.temperature_c||'—')+'℃ 湿度:'+(p.status.humidity_pct||'—')+'% 感染対策:'+(p.status.infection_measures||'—'));
+  L.push('');
+  var age=p.evacuees.age||{}; var ageStr=Object.keys(age).filter(function(k){return age[k]>0;}).map(function(k){return k+':'+age[k];}).join(' ');
+  var total=Object.keys(age).reduce(function(s,k){return s+(age[k]||0);},0);
+  L.push('【避難者】計'+total+'人');
+  if(ageStr) L.push('年代 '+ageStr);
+  L.push('性別 男'+p.evacuees.sex.male+' 女'+p.evacuees.sex.female+' その他'+p.evacuees.sex.other);
+  var dist=p.evacuees.district||{}; var dk=Object.keys(dist);
+  if(dk.length){ L.push('自治会別 '+dk.map(function(k){return k+':'+dist[k];}).join(' ')); }
+  L.push('');
+  L.push('【要配慮者】妊婦'+p.evacuees.pregnant+' 産婦'+p.evacuees.postpartum+' 乳幼児連れ世帯'+p.evacuees.infant_households);
+  var dis=p.evacuees.disability||{}; var disStr=Object.keys(dis).filter(function(k){return dis[k]>0;}).map(function(k){return k+':'+dis[k];}).join(' ');
+  if(disStr) L.push('障害 '+disStr);
+  L.push('');
+  L.push('【ペット】同伴世帯'+p.evacuees.pet.households+' 犬'+p.evacuees.pet.dogs+' 猫'+p.evacuees.pet.cats+' その他'+p.evacuees.pet.others);
+  L.push('【医療】医療者:'+(p.medical.present||'—')+' 機関:'+(p.medical.org||'—')+' けが人:'+(p.medical.injured_count||0));
+  if(p.notes){ L.push(''); L.push('【特記】'+p.notes); }
+  return L.join('\n');
+}
+function shareReport(){
+  var text = reportPlainText();
+  if(navigator.share){ navigator.share({title:'避難所運営 報告', text:text}).catch(function(){}); }
+  else{ copyReport(); toast('共有用にコピーしました','info'); }
+}
+function copyReport(){
+  var text = reportPlainText();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ toast('コピーしました','ok'); }, function(){ toolFallbackCopy(text); });
+  }else{ toolFallbackCopy(text); }
+}
+function toolFallbackCopy(text){
+  var ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); toast('コピーしました','ok'); }catch(e){ toast('コピーに失敗しました','err'); }
+  document.body.removeChild(ta);
+}
+function printReport(){ window.print(); }
+function pdfReport(){
+  toast('印刷ダイアログで「PDFに保存」を選ぶとPDF化できます','info',3200);
+  setTimeout(function(){ window.print(); }, 300);
+}
+
 /* ============ 送信 & オフライン処理 ============ */
 async function postToHost(payload){
   const res = await fetch(CFG.GAS_URL, {
@@ -526,6 +577,10 @@ async function init(){
   // 設定・日誌ボタン
   var sb=document.getElementById('settingsBtn'); if(sb) sb.onclick=openSettings;
   var lb=document.getElementById('logBtn'); if(lb) lb.onclick=openLog;
+  var shb=document.getElementById('shareBtn'); if(shb) shb.onclick=shareReport;
+  var cpb=document.getElementById('copyBtn'); if(cpb) cpb.onclick=copyReport;
+  var prb=document.getElementById('printBtn'); if(prb) prb.onclick=printReport;
+  var pdb=document.getElementById('pdfBtn'); if(pdb) pdb.onclick=pdfReport;
   // モーダル背景クリックで閉じる
   var sm=document.getElementById('settingsModal'); if(sm) sm.addEventListener('click',function(e){ if(e.target===sm) closeSettings(); });
   var lm=document.getElementById('logModal'); if(lm) lm.addEventListener('click',function(e){ if(e.target===lm) closeLog(); });
