@@ -5,6 +5,129 @@
 
 const CFG = window.APP_CONFIG;
 
+/* ============ ログイン認証 ============ */
+const AUTH_KEY = 'shelter_auth';       // ログイン状態の保存キー
+const AUTH_TTL = 12 * 3600 * 1000;     // 12時間で再ログイン
+
+function isLoggedIn(){
+  try{
+    const a = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
+    return a && a.ok && (Date.now() - a.at < AUTH_TTL);
+  }catch(e){ return false; }
+}
+function saveLogin(){
+  try{ localStorage.setItem(AUTH_KEY, JSON.stringify({ok:true, at:Date.now()})); }catch(e){}
+}
+function logout(){
+  try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
+  location.reload();
+}
+async function doLogin(){
+  const pw = document.getElementById('loginPw').value;
+  const err = document.getElementById('loginErr');
+  err.textContent = '';
+  if(!pw){ err.textContent='パスワードを入力してください'; return; }
+  try{
+    const res = await fetch(CFG.GAS_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'login', password:pw})
+    });
+    const r = await res.json();
+    if(r && r.ok){
+      saveLogin();
+      document.getElementById('loginGate').style.display='none';
+      document.getElementById('loginPw').value='';
+    }else{
+      err.textContent = 'パスワードが違います';
+    }
+  }catch(e){
+    err.textContent = '通信エラー。ネットワークを確認してください';
+  }
+}
+function showGateIfNeeded(){
+  const gate = document.getElementById('loginGate');
+  if(isLoggedIn()){ gate.style.display='none'; }
+  else{ gate.style.display='flex'; setTimeout(function(){ var e=document.getElementById('loginPw'); if(e) e.focus(); }, 100); }
+}
+
+/* ============ 設定モーダル ============ */
+function openSettings(){ document.getElementById('settingsModal').hidden=false; }
+function closeSettings(){ document.getElementById('settingsModal').hidden=true; }
+async function changePassword(){
+  const p1=document.getElementById('newPw1').value;
+  const p2=document.getElementById('newPw2').value;
+  const msg=document.getElementById('pwMsg');
+  msg.style.color=''; msg.textContent='';
+  if(p1.length<4){ msg.style.color='#ff9a9a'; msg.textContent='4文字以上で入力してください'; return; }
+  if(p1!==p2){ msg.style.color='#ff9a9a'; msg.textContent='確認用と一致しません'; return; }
+  msg.textContent='変更中…';
+  try{
+    const res=await fetch(CFG.GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'change_password', token:CFG.TOKEN, new_password:p1})});
+    const r=await res.json();
+    if(r&&r.ok){ msg.style.color='#7ff0ac'; msg.textContent='パスワードを変更しました。次回ログインから有効です。';
+      document.getElementById('newPw1').value=''; document.getElementById('newPw2').value=''; }
+    else{ msg.style.color='#ff9a9a'; msg.textContent='変更失敗：'+((r&&r.error)||'不明'); }
+  }catch(e){ msg.style.color='#ff9a9a'; msg.textContent='通信エラー'; }
+}
+async function resetAll(){
+  const msg=document.getElementById('resetMsg');
+  if(!confirm('本当にすべてのデータ（報告・集計・履歴・TODO・チャット）を消去しますか？\nこの操作は取り消せません。')) return;
+  if(!confirm('最終確認です。全データを消去します。よろしいですか？')) return;
+  msg.style.color=''; msg.textContent='消去中…';
+  try{
+    const res=await fetch(CFG.GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'reset_all', token:CFG.TOKEN, scope:'all'})});
+    const r=await res.json();
+    if(r&&r.ok){ msg.style.color='#7ff0ac'; msg.textContent='すべてのデータを消去しました。'; }
+    else{ msg.style.color='#ff9a9a'; msg.textContent='消去失敗：'+((r&&r.error)||'不明'); }
+  }catch(e){ msg.style.color='#ff9a9a'; msg.textContent='通信エラー'; }
+}
+
+/* ============ 日誌（アーカイブ）閲覧 ============ */
+let LOG_DATA = [];
+function openLog(){ document.getElementById('logModal').hidden=false; loadLog(); }
+function closeLog(){ document.getElementById('logModal').hidden=true; }
+async function loadLog(){
+  const content=document.getElementById('logContent');
+  content.innerHTML='<div class="hint">読み込み中…</div>';
+  try{
+    const res=await fetch(CFG.GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'get_archive', token:CFG.TOKEN})});
+    const r=await res.json();
+    if(!r||!r.ok){ content.innerHTML='<div class="hint">取得に失敗しました。</div>'; return; }
+    LOG_DATA = r.archive||[];
+    const dates = r.dates||[];
+    const sel=document.getElementById('logDate');
+    if(!dates.length){ sel.innerHTML='<option value="">記録なし</option>'; content.innerHTML='<div class="hint">まだ日誌の記録がありません。</div>'; return; }
+    sel.innerHTML=dates.map(function(d){return '<option value="'+d+'">'+d+'</option>';}).join('');
+    renderLogTable();
+  }catch(e){ content.innerHTML='<div class="hint">通信エラー。</div>'; }
+}
+function esc2(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+function renderLogTable(){
+  const date=document.getElementById('logDate').value;
+  const content=document.getElementById('logContent');
+  const rows=LOG_DATA.filter(function(r){return r.date===date;});
+  if(!rows.length){ content.innerHTML='<div class="hint">この日の記録はありません。</div>'; return; }
+  // 時間帯（朝昼夜）ごとにまとめる
+  const bySlot={}; const order=[];
+  rows.forEach(function(r){ if(!bySlot[r.slot]){bySlot[r.slot]=[];order.push(r.slot);} bySlot[r.slot].push(r); });
+  let html='';
+  order.forEach(function(slot){
+    html+='<div class="log-slot">'+esc2(slot)+'</div>';
+    html+='<table><thead><tr><th>避難所</th><th class="num">避難人数</th><th class="num">要配慮</th><th class="num">けが人</th><th>電気</th><th>水</th></tr></thead><tbody>';
+    bySlot[slot].forEach(function(r){
+      html+='<tr><td>'+esc2(r.shelter_id)+'：'+esc2(r.shelter_name||'')+'</td>'+
+        '<td class="num">'+r.total_evacuees+'</td><td class="num">'+r.care_approx+'</td>'+
+        '<td class="num">'+r.injured+'</td><td>'+esc2(r.power||'—')+'</td><td>'+esc2(r.water||'—')+'</td></tr>';
+    });
+    html+='</tbody></table>';
+  });
+  content.innerHTML=html;
+}
+
+
 /* ============ IndexedDB（オフライン退避） ============ */
 const DB_NAME = 'shelterDB';
 const STORE = 'outbox';
@@ -399,6 +522,13 @@ function initTheme(){
 
 async function init(){
   initTheme();
+  showGateIfNeeded();  // 未ログインならログイン画面を表示
+  // 設定・日誌ボタン
+  var sb=document.getElementById('settingsBtn'); if(sb) sb.onclick=openSettings;
+  var lb=document.getElementById('logBtn'); if(lb) lb.onclick=openLog;
+  // モーダル背景クリックで閉じる
+  var sm=document.getElementById('settingsModal'); if(sm) sm.addEventListener('click',function(e){ if(e.target===sm) closeSettings(); });
+  var lm=document.getElementById('logModal'); if(lm) lm.addEventListener('click',function(e){ if(e.target===lm) closeLog(); });
   // 連絡チャットボタン：GAS配信のチャットページを新しいタブで開く
   const chatBtn = document.getElementById('chatBtn');
   if(chatBtn){

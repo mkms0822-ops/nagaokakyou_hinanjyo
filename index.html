@@ -8,12 +8,29 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
+<!-- ===== ログイン画面 ===== -->
+<div id="loginGate" style="position:fixed;inset:0;z-index:1000;background:#0b1f33;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0f2942;border:1px solid #28496b;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;text-align:center;color:#eaf1f8">
+    <div style="display:grid;place-items:center;width:48px;height:48px;border-radius:10px;background:#ffb703;color:#0b1f33;font-weight:800;font-size:24px;margin:0 auto 12px">避</div>
+    <h2 style="margin:0 0 4px;font-size:18px">避難所運営管理ツール</h2>
+    <p style="color:#9db4cc;font-size:13px;margin:0 0 18px">パスワードを入力してください</p>
+    <input id="loginPw" type="password" placeholder="パスワード" autocomplete="current-password"
+      style="width:100%;min-height:48px;background:#0d2137;color:#eaf1f8;border:1px solid #2f5679;border-radius:8px;padding:10px 12px;font-size:16px"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="loginErr" style="color:#ff9a9a;font-size:13px;min-height:18px;margin:8px 0"></div>
+    <button onclick="doLogin()" style="width:100%;min-height:48px;border:none;border-radius:8px;background:#ffb703;color:#0b1f33;font-weight:800;font-size:16px;cursor:pointer">ログイン</button>
+  </div>
+</div>
+
 <header class="app-header">
   <div class="brand">
     <span class="brand-mark">避</span>
     <span class="brand-name">避難所運営管理ツール</span>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+    <button id="logBtn" type="button" class="theme-toggle" title="日誌の閲覧">📅 日誌</button>
+    <button id="settingsBtn" type="button" class="theme-toggle" title="設定">⚙️ 設定</button>
     <button id="chatBtn" type="button" class="theme-toggle" title="連絡チャット">💬 チャット</button>
     <button id="themeToggle" type="button" class="theme-toggle" title="表示テーマ切替">🌙 ダーク</button>
     <div id="netBadge" class="net-badge net-online" title="通信状態">オンライン</div>
@@ -236,6 +253,47 @@
 </div>
 
 <div id="toast" class="toast" hidden></div>
+
+<!-- ===== 設定モーダル ===== -->
+<div id="settingsModal" class="modal-back" hidden>
+  <div class="modal-box">
+    <div class="modal-head"><b>⚙️ 設定</b><button class="modal-x" onclick="closeSettings()">✕</button></div>
+    <div class="modal-body">
+      <h3 class="sub" style="margin-top:0">パスワードの変更</h3>
+      <label class="field">新しいパスワード（4文字以上）
+        <input id="newPw1" type="password" placeholder="新しいパスワード">
+      </label>
+      <label class="field">確認のためもう一度
+        <input id="newPw2" type="password" placeholder="もう一度入力">
+      </label>
+      <button class="btn-primary modal-btn" onclick="changePassword()">パスワードを変更</button>
+      <div id="pwMsg" class="hint" style="min-height:18px"></div>
+
+      <h3 class="sub">データの全消去</h3>
+      <p class="hint">送信済みの報告・集計・履歴・TODO・チャットを<b>すべて消去</b>します。パスワードは消えません。訓練の後始末や新年度の初期化に使ってください。</p>
+      <button class="modal-btn" style="background:#c23b3b;color:#fff;border:none;border-radius:8px;min-height:48px;font-weight:800;cursor:pointer;width:100%" onclick="resetAll()">🗑 すべてのデータをリセット</button>
+      <div id="resetMsg" class="hint" style="min-height:18px"></div>
+
+      <h3 class="sub">この端末</h3>
+      <button class="modal-btn" style="background:var(--navy-700);color:var(--ink);border:none;border-radius:8px;min-height:44px;font-weight:700;cursor:pointer;width:100%" onclick="logout()">ログアウト</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 日誌閲覧モーダル ===== -->
+<div id="logModal" class="modal-back" hidden>
+  <div class="modal-box" style="max-width:760px">
+    <div class="modal-head"><b>📅 日誌の閲覧</b><button class="modal-x" onclick="closeLog()">✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <label style="font-size:13px;color:var(--ink-dim)">日付</label>
+        <select id="logDate" onchange="renderLogTable()" style="min-height:42px;background:var(--field-bg);color:var(--ink);border:1px solid var(--field-line);border-radius:8px;padding:6px 10px;font-size:15px"></select>
+        <button class="theme-toggle" onclick="loadLog()">更新</button>
+      </div>
+      <div id="logContent"><div class="hint">日付を選ぶと、その日の各避難所の記録を表示します。</div></div>
+    </div>
+  </div>
+</div>
 
 <script src="config.js"></script>
 <script src="app.js"></script>
