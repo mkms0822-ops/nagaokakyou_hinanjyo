@@ -51,7 +51,7 @@ function showGateIfNeeded(){
 }
 
 /* ============ 設定モーダル ============ */
-function openSettings(){ document.getElementById('settingsModal').hidden=false; }
+function openSettings(){ document.getElementById('logModal').hidden=true; document.getElementById('settingsModal').hidden=false; }
 function closeSettings(){ document.getElementById('settingsModal').hidden=true; }
 async function changePassword(){
   const p1=document.getElementById('newPw1').value;
@@ -86,7 +86,7 @@ async function resetAll(){
 
 /* ============ 日誌（アーカイブ）閲覧 ============ */
 let LOG_DATA = [];
-function openLog(){ document.getElementById('logModal').hidden=false; loadLog(); }
+function openLog(){ document.getElementById('settingsModal').hidden=true; document.getElementById('logModal').hidden=false; loadLog(); }
 function closeLog(){ document.getElementById('logModal').hidden=true; }
 async function loadLog(){
   const content=document.getElementById('logContent');
@@ -529,6 +529,10 @@ async function init(){
   // モーダル背景クリックで閉じる
   var sm=document.getElementById('settingsModal'); if(sm) sm.addEventListener('click',function(e){ if(e.target===sm) closeSettings(); });
   var lm=document.getElementById('logModal'); if(lm) lm.addEventListener('click',function(e){ if(e.target===lm) closeLog(); });
+  // Escキーでモーダルを閉じる
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){ closeSettings(); closeLog(); }
+  });
   // 連絡チャットボタン：GAS配信のチャットページを新しいタブで開く
   const chatBtn = document.getElementById('chatBtn');
   if(chatBtn){
