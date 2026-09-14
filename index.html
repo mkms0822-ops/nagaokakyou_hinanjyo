@@ -14,8 +14,11 @@
   <div style="background:#0f2942;border:1px solid #28496b;border-radius:14px;padding:26px 22px;max-width:360px;width:100%;text-align:center;color:#eaf1f8">
     <div style="display:grid;place-items:center;width:48px;height:48px;border-radius:10px;background:#ffb703;color:#0b1f33;font-weight:800;font-size:24px;margin:0 auto 12px">避</div>
     <h2 style="margin:0 0 4px;font-size:18px">避難所運営管理ツール</h2>
-    <p style="color:#9db4cc;font-size:13px;margin:0 0 18px">パスワードを入力してください</p>
-    <input id="loginPw" type="password" placeholder="パスワード" autocomplete="current-password"
+    <p style="color:#9db4cc;font-size:13px;margin:0 0 18px">避難所を選び、パスワードを入力してください</p>
+    <select id="loginShelter" style="width:100%;min-height:48px;background:#0d2137;color:#eaf1f8;border:1px solid #2f5679;border-radius:8px;padding:10px 12px;font-size:16px;margin-bottom:10px">
+      <option value="">避難所を選択</option>
+    </select>
+    <input id="loginPw" type="password" placeholder="パスワード（初期値 nagaokakyo2026）" autocomplete="current-password"
       style="width:100%;min-height:48px;background:#0d2137;color:#eaf1f8;border:1px solid #2f5679;border-radius:8px;padding:10px 12px;font-size:16px"
       onkeydown="if(event.key==='Enter')doLogin()">
     <div id="loginErr" style="color:#ff9a9a;font-size:13px;min-height:18px;margin:8px 0"></div>
@@ -263,7 +266,9 @@
   <div class="modal-box">
     <div class="modal-head"><b>⚙️ 設定</b><button class="modal-x" onclick="closeSettings()">✕</button></div>
     <div class="modal-body">
-      <h3 class="sub" style="margin-top:0">パスワードの変更</h3>
+      <div id="currentShelter" class="hint" style="margin-top:0;font-size:14px;color:var(--ink)"></div>
+
+      <h3 class="sub" style="margin-top:8px">この避難所のパスワード変更</h3>
       <label class="field">新しいパスワード（4文字以上）
         <input id="newPw1" type="password" placeholder="新しいパスワード">
       </label>
@@ -271,7 +276,15 @@
         <input id="newPw2" type="password" placeholder="もう一度入力">
       </label>
       <button class="btn-primary modal-btn" onclick="changePassword()">パスワードを変更</button>
+      <button class="modal-btn" style="background:var(--navy-700);color:var(--ink);border:none;border-radius:8px;min-height:44px;font-weight:700;cursor:pointer;width:100%" onclick="resetPassword()">パスワードを初期値(nagaokakyo2026)に戻す</button>
       <div id="pwMsg" class="hint" style="min-height:18px"></div>
+
+      <h3 class="sub">前回の入力</h3>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--ink)">
+        <input type="checkbox" id="autoRestoreChk" style="width:22px;height:22px" onchange="toggleAutoRestore()">
+        ログインしたら前回の入力内容を自動で復元する
+      </label>
+      <div id="autoRestoreMsg" class="hint" style="min-height:18px;margin-top:6px"></div>
 
       <h3 class="sub">データの全消去</h3>
       <p class="hint">送信済みの報告・集計・履歴・TODO・チャットを<b>すべて消去</b>します。パスワードは消えません。訓練の後始末や新年度の初期化に使ってください。</p>

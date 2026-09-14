@@ -5,38 +5,70 @@
 
 const CFG = window.APP_CONFIG;
 
-/* ============ ログイン認証 ============ */
-const AUTH_KEY = 'shelter_auth';       // ログイン状態の保存キー
-const AUTH_TTL = 12 * 3600 * 1000;     // 12時間で再ログイン
+/* ============ ログイン認証（避難所ごと） ============ */
+const AUTH_KEY = 'shelter_auth';
+const AUTH_TTL = 12 * 3600 * 1000;
+const MY_SHELTER_KEY = 'my_shelter';       // ログイン中の避難所 {id,name}
+const AUTO_RESTORE_KEY = 'auto_restore';   // 前回入力の自動復元 ON/OFF
 
 function isLoggedIn(){
   try{
     const a = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
-    return a && a.ok && (Date.now() - a.at < AUTH_TTL);
+    return a && a.ok && a.shelter_id && (Date.now() - a.at < AUTH_TTL);
   }catch(e){ return false; }
 }
-function saveLogin(){
-  try{ localStorage.setItem(AUTH_KEY, JSON.stringify({ok:true, at:Date.now()})); }catch(e){}
+function myShelter(){
+  try{ return JSON.parse(localStorage.getItem(MY_SHELTER_KEY) || 'null'); }catch(e){ return null; }
+}
+function saveLogin(sid, sname){
+  try{ localStorage.setItem(AUTH_KEY, JSON.stringify({ok:true, at:Date.now(), shelter_id:sid})); }catch(e){}
+  try{ localStorage.setItem(MY_SHELTER_KEY, JSON.stringify({id:sid, name:sname})); }catch(e){}
 }
 function logout(){
   try{ localStorage.removeItem(AUTH_KEY); }catch(e){}
   location.reload();
 }
+// 避難所IDを並び順から算出（A,B,C…）
+function shelterIdFromIndexAuth(i){
+  let s=''; i=i+1;
+  while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); }
+  return s;
+}
+// ログイン画面の避難所プルダウンを生成
+function buildLoginShelterSelect(){
+  const sel = document.getElementById('loginShelter');
+  if(!sel) return;
+  (CFG.SHELTERS||[]).forEach(function(name,i){
+    const id = shelterIdFromIndexAuth(i);
+    const opt = document.createElement('option');
+    opt.value = id; opt.dataset.name = name;
+    opt.textContent = id + '：' + name;
+    sel.appendChild(opt);
+  });
+  // 前回の避難所を初期選択
+  const ms = myShelter();
+  if(ms && ms.id) sel.value = ms.id;
+}
 async function doLogin(){
+  const sel = document.getElementById('loginShelter');
   const pw = document.getElementById('loginPw').value;
   const err = document.getElementById('loginErr');
   err.textContent = '';
+  if(!sel.value){ err.textContent='避難所を選んでください'; return; }
   if(!pw){ err.textContent='パスワードを入力してください'; return; }
+  const sid = sel.value;
+  const sname = sel.options[sel.selectedIndex].dataset.name || '';
   try{
     const res = await fetch(CFG.GAS_URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'login', password:pw})
+      body: JSON.stringify({action:'login', shelter_id:sid, password:pw})
     });
     const r = await res.json();
     if(r && r.ok){
-      saveLogin();
+      saveLogin(sid, sname);
       document.getElementById('loginGate').style.display='none';
       document.getElementById('loginPw').value='';
+      afterLogin();
     }else{
       err.textContent = 'パスワードが違います';
     }
@@ -46,30 +78,131 @@ async function doLogin(){
 }
 function showGateIfNeeded(){
   const gate = document.getElementById('loginGate');
-  if(isLoggedIn()){ gate.style.display='none'; }
+  buildLoginShelterSelect();
+  if(isLoggedIn()){ gate.style.display='none'; afterLogin(); }
   else{ gate.style.display='flex'; setTimeout(function(){ var e=document.getElementById('loginPw'); if(e) e.focus(); }, 100); }
 }
+// ログイン後：避難所を報告フォームに反映＋前回入力を自動復元
+function afterLogin(){
+  const ms = myShelter();
+  if(ms && ms.id){
+    // 避難所プルダウンを自分の避難所に固定選択
+    const nameSel = document.getElementById('shelter_name');
+    if(nameSel){
+      for(var i=0;i<nameSel.options.length;i++){
+        if(nameSel.options[i].dataset && nameSel.options[i].dataset.id===ms.id){ nameSel.selectedIndex=i; break; }
+      }
+      document.getElementById('shelter_id').value = ms.id;
+    }
+  }
+  // 前回入力の自動復元
+  if(isAutoRestore()){ restoreLastInput(); }
+}
+
 
 /* ============ 設定モーダル ============ */
-function openSettings(){ document.getElementById('logModal').hidden=true; document.getElementById('settingsModal').hidden=false; }
+function openSettings(){ document.getElementById('logModal').hidden=true; document.getElementById('settingsModal').hidden=false; showCurrentShelter(); }
 function closeSettings(){ document.getElementById('settingsModal').hidden=true; }
+// 設定画面に現在の避難所名と自動復元状態を表示
+function showCurrentShelter(){
+  const ms = myShelter();
+  const el = document.getElementById('currentShelter');
+  if(el) el.innerHTML = 'ログイン中の避難所：<b>'+ (ms ? (ms.id+'：'+ms.name) : '—') +'</b>';
+  const chk = document.getElementById('autoRestoreChk');
+  if(chk) chk.checked = isAutoRestore();
+}
 async function changePassword(){
   const p1=document.getElementById('newPw1').value;
   const p2=document.getElementById('newPw2').value;
   const msg=document.getElementById('pwMsg');
+  const ms=myShelter();
   msg.style.color=''; msg.textContent='';
   if(p1.length<4){ msg.style.color='#ff9a9a'; msg.textContent='4文字以上で入力してください'; return; }
   if(p1!==p2){ msg.style.color='#ff9a9a'; msg.textContent='確認用と一致しません'; return; }
   msg.textContent='変更中…';
   try{
     const res=await fetch(CFG.GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({action:'change_password', token:CFG.TOKEN, new_password:p1})});
+      body:JSON.stringify({action:'change_password', token:CFG.TOKEN, shelter_id:(ms&&ms.id)||'', new_password:p1})});
     const r=await res.json();
-    if(r&&r.ok){ msg.style.color='#7ff0ac'; msg.textContent='パスワードを変更しました。次回ログインから有効です。';
+    if(r&&r.ok){ msg.style.color='#7ff0ac'; msg.textContent='この避難所のパスワードを変更しました。';
       document.getElementById('newPw1').value=''; document.getElementById('newPw2').value=''; }
     else{ msg.style.color='#ff9a9a'; msg.textContent='変更失敗：'+((r&&r.error)||'不明'); }
   }catch(e){ msg.style.color='#ff9a9a'; msg.textContent='通信エラー'; }
 }
+async function resetPassword(){
+  const msg=document.getElementById('pwMsg');
+  const ms=myShelter();
+  if(!confirm('この避難所のパスワードを初期値（nagaokakyo2026）に戻しますか？')) return;
+  msg.style.color=''; msg.textContent='リセット中…';
+  try{
+    const res=await fetch(CFG.GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'reset_password', token:CFG.TOKEN, shelter_id:(ms&&ms.id)||''})});
+    const r=await res.json();
+    if(r&&r.ok){ msg.style.color='#7ff0ac'; msg.textContent='パスワードを nagaokakyo2026 に戻しました。'; }
+    else{ msg.style.color='#ff9a9a'; msg.textContent='リセット失敗：'+((r&&r.error)||'不明'); }
+  }catch(e){ msg.style.color='#ff9a9a'; msg.textContent='通信エラー'; }
+}
+
+/* ============ 前回入力の自動保存・復元 ============ */
+function isAutoRestore(){
+  try{ var v=localStorage.getItem(AUTO_RESTORE_KEY); return v===null ? true : v==='1'; }catch(e){ return true; }
+}
+function toggleAutoRestore(){
+  const chk=document.getElementById('autoRestoreChk');
+  try{ localStorage.setItem(AUTO_RESTORE_KEY, chk.checked?'1':'0'); }catch(e){}
+  const msg=document.getElementById('autoRestoreMsg');
+  if(msg){ msg.style.color='#7ff0ac'; msg.textContent = chk.checked ? '自動復元をオンにしました。' : '自動復元をオフにしました。'; }
+}
+// 入力内容を端末に自動保存（避難所ごと）
+function autoSaveInput(){
+  if(!isAutoRestore()) return;
+  const ms=myShelter(); if(!ms||!ms.id) return;
+  try{ localStorage.setItem('last_input_'+ms.id, JSON.stringify(collectPayload())); }catch(e){}
+}
+// 前回入力を復元
+function restoreLastInput(){
+  const ms=myShelter(); if(!ms||!ms.id) return;
+  var saved=null;
+  try{ saved=JSON.parse(localStorage.getItem('last_input_'+ms.id)||'null'); }catch(e){}
+  if(!saved) return;
+  applyPayloadToForm(saved);
+}
+// 保存データをフォームに反映
+function applyPayloadToForm(p){
+  try{
+    if(p.reporter!=null) $('#reporter').value=p.reporter;
+    var s=p.status||{};
+    ['temperature_c','humidity_pct','infection_measures'].forEach(function(k){ if($('#'+k)&&s[k]!=null) $('#'+k).value=s[k]; });
+    // ライフラインのセグメント
+    ['power','water','gas','internet'].forEach(function(k){
+      if(s[k]){ var g=document.querySelector('.segbtns[data-name="'+k+'"]');
+        if(g){ g.querySelectorAll('.seg').forEach(function(b){ b.classList.toggle('active', b.dataset.v===s[k]); if(b.dataset.v===s[k]) g.dataset.value=s[k]; }); } }
+    });
+    var ev=p.evacuees||{};
+    // 年代・性別・障害・要配慮・ペット
+    function setCounter(name,val){ var el=document.querySelector('.counter[data-name="'+name+'"] input'); if(el&&val!=null) el.value=val; }
+    if(ev.age) Object.keys(ev.age).forEach(function(k){ setCounter('age_'+k, ev.age[k]); });
+    if(ev.sex){ setCounter('sex_male',ev.sex.male); setCounter('sex_female',ev.sex.female); setCounter('sex_other',ev.sex.other); }
+    if(ev.disability) Object.keys(ev.disability).forEach(function(k){ setCounter('disability_'+k, ev.disability[k]); });
+    setCounter('pregnant',ev.pregnant); setCounter('postpartum',ev.postpartum); setCounter('infant_households',ev.infant_households);
+    if(ev.pet){ setCounter('pet_households',ev.pet.households); setCounter('pet_dogs',ev.pet.dogs); setCounter('pet_cats',ev.pet.cats); setCounter('pet_others',ev.pet.others); }
+    if($('#chronic_yes')&&ev.chronic_yes!=null) $('#chronic_yes').value=ev.chronic_yes;
+    if($('#chronic_note')&&ev.chronic_note!=null) $('#chronic_note').value=ev.chronic_note;
+    // 自治会
+    if(ev.district){ Object.keys(ev.district).forEach(function(k){ addDistrictEntry(k, ev.district[k]); }); }
+    // 医療
+    var med=p.medical||{};
+    if($('#medical_present')&&med.present!=null) $('#medical_present').value=med.present;
+    if($('#medical_org')&&med.org!=null) $('#medical_org').value=med.org;
+    if($('#injured_count')&&med.injured_count!=null) $('#injured_count').value=med.injured_count;
+    // メモ
+    if($('#notes')&&p.notes!=null) $('#notes').value=p.notes;
+    // 合計再計算
+    updateAgeTotal();
+    toast('前回の入力を復元しました','info');
+  }catch(e){}
+}
+
 async function resetAll(){
   const msg=document.getElementById('resetMsg');
   if(!confirm('本当にすべてのデータ（報告・集計・履歴・TODO・チャット）を消去しますか？\nこの操作は取り消せません。')) return;
@@ -644,6 +777,8 @@ async function init(){
   await flushOutbox();
   // 定期的に未送信を再送
   setInterval(flushOutbox, 30000);
+  // 入力内容を定期的に端末に自動保存（自動復元ON時）
+  setInterval(autoSaveInput, 5000);
 }
 
 document.addEventListener('DOMContentLoaded', init);
